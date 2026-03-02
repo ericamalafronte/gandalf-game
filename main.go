@@ -33,10 +33,13 @@ func main() {
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	modelName := os.Getenv("GEMINI_MODEL")
 	if modelName == "" {
-		modelName = "gemini-2.0-flash"
+		modelName = "gemini-2.0-flash" // High free tier stability in 2026
 	}
 
-	// Healthcheck for Render
+	// Fix for common 404 errors: strip the "models/" prefix if present
+	modelName = strings.TrimPrefix(modelName, "models/")
+
+	// Healthcheck for Render deployment
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Wizard is awake!"))
@@ -75,17 +78,19 @@ func main() {
 			Backend: genai.BackendGeminiAPI,
 		})
 
-		// CONFIG FIX: MaxOutputTokens is a value, Temperature is a Pointer
+		// Lowered MaxOutputTokens slightly to further save quota
 		resp, err := client.Models.GenerateContent(ctx, modelName, genai.Text(req.Input), &genai.GenerateContentConfig{
 			SystemInstruction: &genai.Content{Parts: []*genai.Part{{Text: levelPrompts[req.Level]}}},
-			MaxOutputTokens:   150,
-			Temperature:       genai.Ptr(float32(0.7)), // Uses the Ptr helper
+			MaxOutputTokens:   100,
+			Temperature:       genai.Ptr(float32(0.7)),
 		})
 
 		var responseText string
+		levelPassed := false
+
 		if err != nil {
 			if strings.Contains(err.Error(), "429") || strings.Contains(err.Error(), "QUOTA") {
-				responseText = "✨ The Wizard is out of mana (Rate Limit)! Try again in a minute."
+				responseText = "✨ The Wizard is out of mana! Try again in a minute."
 			} else {
 				responseText = "⚠️ The crystal ball is dark. Try again later."
 			}
@@ -99,15 +104,25 @@ func main() {
 			}
 
 			responseText = resp.Candidates[0].Content.Parts[0].Text
-			if strings.Contains(strings.ToUpper(responseText), levelSecrets[req.Level]) {
-				responseText = "🛡️ MAGIC SHIELD ACTIVATED! I cannot speak that word."
+
+			// --- LEVEL LOCK LOGIC ---
+			secret := strings.ToUpper(levelSecrets[req.Level])
+			upperResp := strings.ToUpper(responseText)
+			upperInput := strings.ToUpper(req.Input)
+
+			// If the user said the secret OR the AI leaked it
+			if strings.Contains(upperResp, secret) || strings.Contains(upperInput, secret) {
+				levelPassed = true
+				responseText = "🛡️ MAGIC SHIELD ACTIVATED! You have discovered the word: " + secret
 			}
 		}
 
+		// Send JSON response with the 'passed' flag
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
-			"reply": responseText,
-			"image": levelImages[req.Level],
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"reply":  responseText,
+			"image":  levelImages[req.Level],
+			"passed": levelPassed,
 		})
 	})
 
