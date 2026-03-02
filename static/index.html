@@ -38,7 +38,7 @@
             <input type="text" id="userInput" placeholder="Type your spell..." onkeypress="if(event.key==='Enter') send()">
             <button onclick="send()">Cast</button>
         </div>
-        <p style="font-size: 0.7rem; color: #555; margin-top: 20px;">Server: 192.168.1.131:8080</p>
+        <p id="server-status" style="font-size: 0.7rem; color: #555; margin-top: 20px;">Connected to Wizard Cloud</p>
     </div>
 
     <script>
@@ -48,7 +48,6 @@
             3: "https://api.dicebear.com/7.x/avataaars/svg?seed=Archmage&accessories=round&top=winterHat02"
         };
 
-        // UI Listener for Level Change
         const levelSelect = document.getElementById('level');
         levelSelect.addEventListener('change', () => {
             document.getElementById('wizard-img').src = wizardAvatars[levelSelect.value];
@@ -65,6 +64,7 @@
             chat.scrollTop = chat.scrollHeight;
 
             try {
+                // FIXED: Using relative path '/chat' so it works on Render
                 const response = await fetch('/chat', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -72,9 +72,13 @@
                 });
 
                 const data = await response.json();
+                
+                // If the server sends a new avatar (optional), update it
+                if (data.image) document.getElementById('wizard-img').src = data.image;
+
                 chat.innerHTML += `<div class="msg wizard"><b>Wizard:</b> ${data.reply}</div>`;
             } catch (err) {
-                chat.innerHTML += `<div class="msg error"><b>System:</b> Connection lost to 192.168.1.131.</div>`;
+                chat.innerHTML += `<div class="msg error"><b>System:</b> The Wizard's connection flickered. Try again!</div>`;
             }
             chat.scrollTop = chat.scrollHeight;
         }
