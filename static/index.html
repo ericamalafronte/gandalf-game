@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gandalf's Challenge</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0c29; color: #fff; text-align: center; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        #wizard-img { width: 180px; height: 180px; border-radius: 50%; border: 4px solid #00d2ff; margin-bottom: 20px; background: #16213e; }
+        #chat { background: rgba(255, 255, 255, 0.05); border-radius: 10px; height: 400px; overflow-y: auto; padding: 15px; text-align: left; border: 1px solid #333; margin-bottom: 10px; }
+        .msg { margin-bottom: 12px; padding: 10px; border-radius: 8px; line-height: 1.4; }
+        .user { background: #243b55; border-left: 4px solid #00d2ff; margin-left: 20px; }
+        .wizard { background: #1b1b3a; border-left: 4px solid #7f00ff; margin-right: 20px; }
+        .error { background: #4a1c1c; color: #ff8888; }
+        input, select, button { padding: 12px; border-radius: 5px; border: none; font-size: 1rem; }
+        input { background: #16213e; color: white; border: 1px solid #333; width: 60%; }
+        button { background: #00d2ff; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img id="wizard-img" src="https://api.dicebear.com/7.x/bottts/svg?seed=Novice&backgroundColor=b6e3f4" alt="Wizard">
+        <h1>Gandalf's Chamber</h1>
+        
+        <div style="margin-bottom: 15px;">
+            <label>Difficulty: </label>
+            <select id="level">
+                <option value="1">Level 1: Novice</option>
+                <option value="2">Level 2: Apprentice</option>
+                <option value="3">Level 3: Archmage</option>
+            </select>
+        </div>
+
+        <div id="chat">
+            <div class="msg wizard"><b>Wizard:</b> I guard the ancient passwords. State your business.</div>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <input type="text" id="userInput" placeholder="Type your spell..." onkeypress="if(event.key==='Enter') send()">
+            <button onclick="send()">Cast</button>
+        </div>
+        <p style="font-size: 0.7rem; color: #555; margin-top: 20px;">Server: 192.168.1.131:8080</p>
+    </div>
+
+    <script>
+        const wizardAvatars = {
+            1: "https://api.dicebear.com/7.x/bottts/svg?seed=Novice&backgroundColor=b6e3f4",
+            2: "https://api.dicebear.com/7.x/adventurer/svg?seed=Apprentice&backgroundColor=ffdfbf",
+            3: "https://api.dicebear.com/7.x/avataaars/svg?seed=Archmage&accessories=round&top=winterHat02"
+        };
+
+        // UI Listener for Level Change
+        const levelSelect = document.getElementById('level');
+        levelSelect.addEventListener('change', () => {
+            document.getElementById('wizard-img').src = wizardAvatars[levelSelect.value];
+        });
+
+        async function send() {
+            const inputEl = document.getElementById('userInput');
+            const chat = document.getElementById('chat');
+            const input = inputEl.value;
+            if(!input) return;
+
+            chat.innerHTML += `<div class="msg user"><b>You:</b> ${input}</div>`;
+            inputEl.value = '';
+            chat.scrollTop = chat.scrollHeight;
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ level: parseInt(levelSelect.value), input: input })
+                });
+
+                const data = await response.json();
+                chat.innerHTML += `<div class="msg wizard"><b>Wizard:</b> ${data.reply}</div>`;
+            } catch (err) {
+                chat.innerHTML += `<div class="msg error"><b>System:</b> Connection lost to 192.168.1.131.</div>`;
+            }
+            chat.scrollTop = chat.scrollHeight;
+        }
+    </script>
+</body>
+</html>
